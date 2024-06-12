@@ -2,33 +2,46 @@ package main
 
 import (
 	"fmt"
+	"html/template"
+	"log"
 	"net/http"
+	"path/filepath"
+
+	"github.com/go-chi/chi/v5"
 )
 
-type Server struct{}
-
-func (s Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	switch r.URL.Path {
-	case "/":
-		handleFunc(w, r)
-
-	case "/contact":
-		contactHandler(w, r)
-	default:
-		http.Error(w, "Page not found", http.StatusNotFound)
-	}
-
-}
-
 func main() {
-	var server Server
-	fmt.Println("Server running on port:3000")
-	http.ListenAndServe(":3000", server)
+	r := chi.NewRouter()
+
+	r.Get("/", handleFunc)
+	r.Get("/contact", contactHandler)
+
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "page not found", http.StatusNotFound)
+	})
+	fmt.Println("Server running on port:3001")
+	if err := http.ListenAndServe(":3001", r); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func handleFunc(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-type", "text/html; charset=utf=8")
-	fmt.Fprint(w, "<h1>Welcome to my go love</h1>")
+
+	tplPath := filepath.Join("templates", "home.gohtml")
+	tpl, err := template.ParseFiles(tplPath)
+
+	if err != nil {
+		fmt.Printf("failed parsing template: %v\n", err)
+		http.Error(w, "encounter an error parsing the template", http.StatusInternalServerError)
+		return
+	}
+
+	if err = tpl.Execute(w, nil); err != nil {
+		fmt.Printf("failed execute template: %v\n", err)
+		http.Error(w, "encounter an error executing the template", http.StatusInternalServerError)
+		return
+	}
 }
 
 func contactHandler(w http.ResponseWriter, _ *http.Request) {
